@@ -3,6 +3,7 @@ import json
 import os
 import re
 import smtplib
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -63,14 +64,20 @@ def load_state():
     if p.exists():
         try:
             data = json.loads(p.read_text())
-            return {"lastTopLine": data.get("lastTopLine", "")}
+            return {
+                "lastTopLine": data.get("lastTopLine", ""),
+                "lastEmailAt": data.get("lastEmailAt", ""),
+            }
         except Exception:
             pass
-    return {"lastTopLine": ""}
+    return {"lastTopLine": "", "lastEmailAt": ""}
 
 
-def save_state(top_line):
-    Path(STATE_FILE).write_text(json.dumps({"lastTopLine": top_line}, indent=2))
+def save_state(top_line, last_email_at):
+    Path(STATE_FILE).write_text(json.dumps({
+        "lastTopLine": top_line,
+        "lastEmailAt": last_email_at,
+    }, indent=2))
 
 
 def split_carriers(checkpoints):
@@ -210,21 +217,38 @@ async def main():
 
     top = checkpoints[0]
     state = load_state()
-
-    save_state(top)
+    now = datetime.now(timezone.utc)
+    now_str = now.isoformat()
 
     print(f"Last known:  '{state['lastTopLine']}'")
     print(f"Current top: '{top}'")
-    if top == state["lastTopLine"]:
-        print("No change — skipping email.")
+
+    if top != state["lastTopLine"]:
+        print("New checkpoint detected — sending update email.")
+        html = build_html(top, status, checkpoints)
+        send_email(f"Order update: LeetCode T-Shirt — {top}", html)
+        save_state(top, now_str)
+        print("Email sent!")
         return
 
-    print(f"Last known: '{state['lastTopLine']}'")
-    print(f"New update detected: {top}")
+    # No new checkpoint — check if 24 hours passed since last email
+    last_email_at = state.get("lastEmailAt", "")
+    if last_email_at:
+        last_dt = datetime.fromisoformat(last_email_at)
+        hours_since = (now - last_dt).total_seconds() / 3600
+        print(f"No change. Hours since last email: {hours_since:.1f}")
+        if hours_since < 24:
+            print("Under 24 hours — skipping digest.")
+            save_state(top, last_email_at)
+            return
+    else:
+        print("No previous email on record.")
 
+    print("24 hours with no update — sending daily digest.")
     html = build_html(top, status, checkpoints)
-    send_email(f"Order update: LeetCode T-Shirt — {top}", html)
-    print("Email sent!")
+    send_email("Daily digest: LeetCode T-Shirt — no new update today", html)
+    save_state(top, now_str)
+    print("Digest email sent!")
 
 
 asyncio.run(main())
