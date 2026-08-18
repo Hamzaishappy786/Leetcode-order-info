@@ -22,10 +22,10 @@ async def get_page_text():
         page = await browser.new_page()
         await page.goto(
             f"https://t.17track.net/en#nums={TRACKING_NUMBER}",
-            wait_until="networkidle",
-            timeout=30000,
+            wait_until="domcontentloaded",
+            timeout=60000,
         )
-        await page.wait_for_timeout(4000)
+        await page.wait_for_timeout(8000)
         text = await page.inner_text("body")
         await browser.close()
     return text
