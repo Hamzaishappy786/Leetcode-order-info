@@ -20,14 +20,22 @@ CHECKPOINT_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
 
 async def get_page_text():
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        page = await browser.new_page()
+        browser = await p.chromium.launch(
+            args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
+        )
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            viewport={"width": 1280, "height": 800},
+            locale="en-US",
+        )
+        page = await context.new_page()
+        await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         await page.goto(
             f"https://t.17track.net/en#nums={TRACKING_NUMBER}",
             wait_until="domcontentloaded",
             timeout=60000,
         )
-        await page.wait_for_timeout(8000)
+        await page.wait_for_timeout(12000)
         text = await page.inner_text("body")
         await browser.close()
     return text
