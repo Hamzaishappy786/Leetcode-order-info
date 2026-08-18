@@ -46,7 +46,11 @@ def parse(text):
 def load_state():
     p = Path(STATE_FILE)
     if p.exists():
-        return json.loads(p.read_text())
+        try:
+            data = json.loads(p.read_text())
+            return {"lastTopLine": data.get("lastTopLine", "")}
+        except Exception:
+            pass
     return {"lastTopLine": ""}
 
 
@@ -194,10 +198,13 @@ async def main():
 
     save_state(top)
 
+    print(f"Last known:  '{state['lastTopLine']}'")
+    print(f"Current top: '{top}'")
     if top == state["lastTopLine"]:
-        print(f"No change. Last known: {top}")
+        print("No change — skipping email.")
         return
 
+    print(f"Last known: '{state['lastTopLine']}'")
     print(f"New update detected: {top}")
 
     html = build_html(top, status, checkpoints)
