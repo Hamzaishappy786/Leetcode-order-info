@@ -43,11 +43,18 @@ async def get_page_text():
 
 def parse(text):
     lines = [l.strip() for l in text.splitlines() if l.strip()]
-    checkpoints = [l for l in lines if CHECKPOINT_RE.match(l)]
     status = next(
         (l for l in lines if any(k in l for k in ("In transit", "Delivered", "Out for Delivery", "Pick up", "Undelivered"))),
         "Unknown",
     )
+    checkpoints = []
+    for i, line in enumerate(lines):
+        if CHECKPOINT_RE.match(line):
+            # description is on the next non-empty line if it doesn't start with a date
+            desc = ""
+            if i + 1 < len(lines) and not CHECKPOINT_RE.match(lines[i + 1]):
+                desc = lines[i + 1]
+            checkpoints.append(f"{line} {desc}".strip())
     return checkpoints, status
 
 
@@ -159,11 +166,11 @@ def build_html(top, status, checkpoints):
 
       <!-- Route -->
       <div style="margin:0 28px 20px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:13px;font-weight:500;color:#444;">&#127464;&#127475; China</span>
+        <span style="font-size:13px;font-weight:500;color:#444;">China</span>
         <div style="flex:1;height:1px;background:#e2e8f0;"></div>
         <span style="font-size:13px;color:#64748b;">&#9992;</span>
         <div style="flex:1;height:1px;background:#e2e8f0;"></div>
-        <span style="font-size:13px;font-weight:500;color:#444;">&#127477;&#127472; Pakistan</span>
+        <span style="font-size:13px;font-weight:500;color:#444;">Pakistan</span>
       </div>
 
       <!-- Carrier sections -->
